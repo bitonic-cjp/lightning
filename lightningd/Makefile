@@ -57,6 +57,7 @@ LIGHTNINGD_SRC :=				\
 	lightningd/channel_control.c		\
 	lightningd/closing_control.c		\
 	lightningd/connect_control.c		\
+	lightningd/custom_router.c		\
 	lightningd/gossip_control.c		\
 	lightningd/gossip_msg.c			\
 	lightningd/hsm_control.c		\

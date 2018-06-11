@@ -11,6 +11,7 @@
 #include <common/timeout.h>
 #include <gossipd/gen_gossip_wire.h>
 #include <lightningd/chaintopology.h>
+#include <lightningd/custom_router.h>
 #include <lightningd/htlc_end.h>
 #include <lightningd/json.h>
 #include <lightningd/jsonrpc.h>
@@ -675,9 +676,11 @@ static bool peer_accepted_htlc(struct channel *channel,
 		goto out;
 	}
 
-	/* Unknown realm isn't a bad onion, it's a normal failure. */
+	/* Unrecognized realm numbers may have application connection bindings */
 	if (rs->hop_data.realm != 0) {
-		*failcode = WIRE_INVALID_REALM;
+		custom_route_payment(failcode,
+			rs->hop_data.realm,
+			op);
 		goto out;
 	}
 
