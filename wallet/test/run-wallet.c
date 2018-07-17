@@ -64,7 +64,10 @@ void command_success(struct command *cmd UNNEEDED, struct json_result *response 
 void connect_succeeded(struct lightningd *ld UNNEEDED, const struct pubkey *id UNNEEDED)
 { fprintf(stderr, "connect_succeeded called!\n"); abort(); }
 /* Generated stub for custom_route_payment */
-void custom_route_payment(enum onion_type *failcode UNNEEDED, u8 realm UNNEEDED, struct onionpacket *op UNNEEDED)
+void custom_route_payment(
+	enum onion_type *failcode UNNEEDED,
+	const struct htlc_in *hin UNNEEDED,
+	const struct route_step *rs UNNEEDED)
 { fprintf(stderr, "custom_route_payment called!\n"); abort(); }
 /* Generated stub for delay_then_reconnect */
 void delay_then_reconnect(struct channel *channel UNNEEDED, u32 seconds_delay UNNEEDED,
