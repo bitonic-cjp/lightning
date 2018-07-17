@@ -12,6 +12,8 @@
 #include <wallet/txfilter.h>
 #include <wallet/wallet.h>
 
+struct custom_router;
+
 /* Various adjustable things. */
 struct config {
 	/* How long do we want them to lock up their funds? (blocks) */
@@ -140,6 +142,9 @@ struct lightningd {
 
 	/* Daemon looking after peers during init / before channel. */
 	struct subd *connectd;
+
+	/* Application connection */
+	struct custom_router *custom_router;
 
 	/* All peers we're tracking. */
 	struct list_head peers;

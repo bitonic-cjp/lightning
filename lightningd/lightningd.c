@@ -68,6 +68,7 @@
 #include <lightningd/chaintopology.h>
 #include <lightningd/channel_control.h>
 #include <lightningd/connect_control.h>
+#include <lightningd/custom_router.h>
 #include <lightningd/invoice.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/log.h>
@@ -172,6 +173,7 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	 * parsing, we know they're to be set to the defaults. */
 	ld->alias = NULL;
 	ld->rgb = NULL;
+	ld->custom_router = NULL;
 	list_head_init(&ld->connects);
 	list_head_init(&ld->waitsendpay_commands);
 	list_head_init(&ld->sendpay_commands);
@@ -577,6 +579,9 @@ int main(int argc, char *argv[])
 
 	/*~ Handle options and config; move to .lightningd (--lightning-dir) */
 	handle_opts(ld, argc, argv);
+
+	/* Setup the app connection, if any */
+	custom_router_setup_connection(ld, ""); //FIXME
 
 	/*~ Make sure we can reach the subdaemons, and versions match. */
 	test_subdaemons(ld);
