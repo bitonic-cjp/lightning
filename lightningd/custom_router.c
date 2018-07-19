@@ -15,7 +15,18 @@ struct custom_router {
 	struct lightningd *ld;
 	struct log *log;
 	int fd;
+
+	/* We've been told to stop. */
+	bool stop;
 };
+
+static void close_connection(const struct custom_router *router)
+{
+	close(router->fd);
+	router->ld->custom_router = NULL;
+	log_debug(router->log, "Custom router connection closed");
+	tal_free(router);
+}
 
 static bool write_all(int fd, const void *buf, size_t count)
 {
@@ -28,7 +39,7 @@ static bool write_all(int fd, const void *buf, size_t count)
 	return true;
 }
 
-static enum onion_type read_app_response(const struct custom_router *router)
+static enum onion_type read_app_response(struct custom_router *router)
 {
 	/* The buffer (required to interpret tokens). */
 	char *buffer = tal_arr(tmpctx, char, 64);
@@ -111,7 +122,9 @@ static enum onion_type read_app_response(const struct custom_router *router)
 	return ret;
 
 connection_error:
-	//FIXME: proper handling, e.g. closing the connection
+	log_debug(router->log,
+		"Will close the custom router connection because of a previously encountered error");
+	router->stop = true;
 
 	//For now, we don't know whether the router has processed the
 	//transaction, so don't return an error:
@@ -130,7 +143,7 @@ void custom_route_payment(
 	if (!router) {
 		log_debug(ld->log, "Custom router is not active: rejecting the payment");
 		*failcode = WIRE_INVALID_REALM;
-		return;
+		goto end;
 	}
 
 	log_debug(router->log, "Using custom router to handle the payment");
@@ -147,12 +160,12 @@ void custom_route_payment(
 		);
 
 	if (!write_all(router->fd, command, strlen(command))) {
-		//FIXME: proper handling, e.g. closing the connection
-		log_debug(router->log,
+		log_unusual(router->log,
 			"Failed to write command to the custom router: error %d (%s)",
 			errno, strerror(errno));
+		router->stop = true;
 		*failcode = WIRE_INVALID_REALM;
-		return;
+		goto end;
 	}
 
 	*failcode = read_app_response(router);
@@ -162,6 +175,10 @@ void custom_route_payment(
 	} else {
 		log_debug(router->log, "Custom router accepted the payment");
 	}
+
+end:
+	if (router && router->stop)
+		close_connection(router);
 }
 
 void custom_router_setup_connection(struct lightningd *ld, const char *filename)
@@ -190,6 +207,7 @@ void custom_router_setup_connection(struct lightningd *ld, const char *filename)
 	router->ld = ld;
 	router->log = ld->log; //FIXME: maybe we want it to have its own log?
 	router->fd = fd;
+	router->stop = false;
 
 	log_debug(router->log, "Connected to custom router on '%s'", filename);
 
