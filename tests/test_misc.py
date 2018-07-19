@@ -975,13 +975,26 @@ def test_custom_router(node_factory, bitcoind):
                   'realm': 254}]
 
         l1.rpc.sendpay(route, rhash)
-        time.sleep(2)
+        l2.daemon.wait_for_log('Custom router rejected the payment')
         assert testRouter.realm == 254
         with pytest.raises(ValueError):
             l1.rpc.waitsendpay(rhash)
 
     finally:
         testRouter.stop()
+        testRouter.close()
+
+    #Now that the test router is closed, routing attempts must fail:
+    l1.rpc.sendpay(route, rhash)
+    l2.daemon.wait_for_log('Failed to write command to the custom router')
+    with pytest.raises(ValueError):
+        l1.rpc.waitsendpay(rhash)
+
+    #Subsequently, the connection is closed:
+    l1.rpc.sendpay(route, rhash)
+    l2.daemon.wait_for_log('Custom router is not active: rejecting the payment')
+    with pytest.raises(ValueError):
+        l1.rpc.waitsendpay(rhash)
 
 
 def test_logging(node_factory):

@@ -72,6 +72,11 @@ class CustomRouter:
         self.channelMap = map
         self.listener = Listener(socket_path, self)
 
+    def close(self):
+        self.listener.close()
+        for conn in self.connections[:]:
+            conn.close()
+
     BADONION = 0x8000
     PERM     = 0x4000
     NODE     = 0x2000
