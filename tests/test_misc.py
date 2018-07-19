@@ -930,6 +930,7 @@ def test_custom_router(node_factory, bitcoind):
 
         def handle_payment(self, realm):
             self.realm = realm
+            return CustomRouter.INVALID_REALM
 
         def run(self):
             while not self.stopRequested:
@@ -976,6 +977,8 @@ def test_custom_router(node_factory, bitcoind):
         l1.rpc.sendpay(route, rhash)
         time.sleep(2)
         assert testRouter.realm == 254
+        with pytest.raises(ValueError):
+            l1.rpc.waitsendpay(rhash)
 
     finally:
         testRouter.stop()

@@ -26,6 +26,20 @@ static bool write_all(int fd, const void *buf, size_t count)
 	return true;
 }
 
+static enum onion_type read_app_response(const struct custom_router *router)
+{
+	//FIXME: parse response from connection
+
+	//Dummy read: continue until closing }
+	char c = '\0';
+	while(true) {
+		read(router->fd, &c, 1);
+		if(c == '}') break;
+	}
+
+	return WIRE_INVALID_REALM;
+}
+
 void custom_route_payment(
 	enum onion_type *failcode,
 	const struct htlc_in *hin,
@@ -63,8 +77,13 @@ void custom_route_payment(
 		return;
 	}
 
-	//FIXME: read response from the socket
-	*failcode = 0;
+	*failcode = read_app_response(router);
+	if (*failcode) {
+		log_debug(ld->log,
+			"Custom router rejected the payment with code %d", *failcode);
+	} else {
+		log_debug(ld->log, "Custom router accepted the payment");
+	}
 }
 
 void custom_router_setup_connection(struct lightningd *ld, const char *filename)

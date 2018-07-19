@@ -27,9 +27,11 @@ class Connection(asyncore.dispatcher_with_send):
         self.read_buffer = self.read_buffer[end_index:]
 
         #FIXME: check method name (must be handle_payment)
-        ret = self.router.handle_payment(**obj['params'])
+        #FIXME: handle exceptions in handle_payment
+        result = self.router.handle_payment(**obj['params'])
 
-        #FIXME: send the return data back
+        s = json.dumps({'id': obj['id'], 'result': result})
+        self.send(bytearray(s, 'UTF-8'))
 
     def handle_close(self):
         self.router.connections.remove(self)
@@ -70,8 +72,20 @@ class CustomRouter:
         self.channelMap = map
         self.listener = Listener(socket_path, self)
 
+    BADONION = 0x8000
+    PERM     = 0x4000
+    NODE     = 0x2000
+    UPDATE   = 0x1000
+
+    #return values for handle_payment:
+    OK                     = 0
+    INVALID_REALM          = PERM|1
+    TEMPORARY_NODE_FAILURE = NODE|2
+    PERMANENT_NODE_FAILURE = PERM|NODE|2
+    #FIXME: add the rest (see BOLT #4)
+
     def handle_payment(self, realm):
         #to be replaced in derived classes
-        #FIXME: by default, cancel a transaction
-        pass
+        #By default, fail a transaction immediately
+        return CustomRouter.PERMANENT_NODE_FAILURE
 
