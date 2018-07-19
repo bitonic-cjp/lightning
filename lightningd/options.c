@@ -387,6 +387,10 @@ static void config_register_opts(struct lightningd *ld)
 	opt_register_noarg("--disable-dns", opt_set_invbool, &ld->config.use_dns,
 			   "Disable DNS lookups of peers");
 
+	opt_register_arg("--custom-router", opt_set_talstr, NULL,
+			&ld->custom_router_filename,
+			"Set a custom router RPC socket filename");
+
 #if DEVELOPER
 	opt_register_arg("--dev-max-funding-unconfirmed-blocks",
 			 opt_set_u32, opt_show_u32,

@@ -118,6 +118,9 @@ Lightning daemon options:
 *conf*='PATH'::
     Sets configuration file. Relative paths will be prefixed by lightning-dir location. (default: config)
 
+*custom-router*='PATH'::
+    Sets the path to the RPC socket of a custom router application. (default: empty)
+
 Lightning node customization options:
 
 *rgb*='RRGGBB'::

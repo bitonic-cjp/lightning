@@ -143,7 +143,10 @@ struct lightningd {
 	/* Daemon looking after peers during init / before channel. */
 	struct subd *connectd;
 
-	/* Application connection */
+	/* The filename of the custom router socket */
+	char *custom_router_filename;
+
+	/* Custom router connection */
 	struct custom_router *custom_router;
 
 	/* All peers we're tracking. */

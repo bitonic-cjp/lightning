@@ -173,6 +173,7 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	 * parsing, we know they're to be set to the defaults. */
 	ld->alias = NULL;
 	ld->rgb = NULL;
+	ld->custom_router_filename = NULL;
 	ld->custom_router = NULL;
 	list_head_init(&ld->connects);
 	list_head_init(&ld->waitsendpay_commands);
@@ -581,7 +582,7 @@ int main(int argc, char *argv[])
 	handle_opts(ld, argc, argv);
 
 	/* Setup the app connection, if any */
-	custom_router_setup_connection(ld, ""); //FIXME
+	custom_router_setup_connection(ld, ld->custom_router_filename);
 
 	/*~ Make sure we can reach the subdaemons, and versions match. */
 	test_subdaemons(ld);
