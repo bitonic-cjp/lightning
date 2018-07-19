@@ -38,6 +38,10 @@ static enum onion_type read_app_response(const struct custom_router *router)
 	jsmntok_t *toks;
 	bool valid;
 
+	const jsmntok_t *result;
+
+	unsigned int ret;
+
 	/* Keep reading until we have a valid JSON object */
 	while (true) {
 		size_t remaining_space = tal_count(buffer) - used;
@@ -80,9 +84,25 @@ static enum onion_type read_app_response(const struct custom_router *router)
 	every call we do.
 	*/
 
-	//FIXME: actually read the result from the JSON data
+	if (toks[0].type != JSMN_OBJECT) {
+		//FIXME: proper logging
+		goto connection_error;
+	}
 
-	return WIRE_INVALID_REALM;
+	//FIXME: check that "id" exists and corresponds to the call
+
+	result = json_get_member(buffer, toks, "result");
+	if (!result) {
+		//FIXME: proper logging
+		goto connection_error;
+	}
+
+	if (!json_to_number(buffer, result, &ret)) {
+		//FIXME: proper logging
+		goto connection_error;
+	}
+
+	return ret;
 
 connection_error:
 	//FIXME: proper handling, e.g. closing the connection
