@@ -13,6 +13,7 @@
 
 struct custom_router {
 	struct lightningd *ld;
+	struct log *log;
 	int fd;
 };
 
@@ -48,7 +49,9 @@ static enum onion_type read_app_response(const struct custom_router *router)
 
 		ssize_t num_read = read(router->fd, buffer + used, remaining_space);
 		if (num_read < 0) {
-			//FIXME: proper logging
+			log_unusual(router->log,
+				"Read from custom router failed: error %d (%s)",
+				errno, strerror(errno));
 			goto connection_error;
 		}
 		used += num_read;
@@ -66,7 +69,9 @@ static enum onion_type read_app_response(const struct custom_router *router)
 		}
 
 		if (!valid) {
-			//FIXME: proper logging
+			log_unusual(router->log,
+				"Invalid token in custom router result: '%.*s'",
+				(int)used, buffer);
 			goto connection_error;
 		}
 
@@ -85,7 +90,7 @@ static enum onion_type read_app_response(const struct custom_router *router)
 	*/
 
 	if (toks[0].type != JSMN_OBJECT) {
-		//FIXME: proper logging
+		log_unusual(router->log, "Expected {} for custom router result");
 		goto connection_error;
 	}
 
@@ -93,12 +98,13 @@ static enum onion_type read_app_response(const struct custom_router *router)
 
 	result = json_get_member(buffer, toks, "result");
 	if (!result) {
-		//FIXME: proper logging
+		log_unusual(router->log, "No \"result\" element in custom router result");
 		goto connection_error;
 	}
 
 	if (!json_to_number(buffer, result, &ret)) {
-		//FIXME: proper logging
+		log_unusual(router->log,
+			"\"result\" element in custom router result is not a number");
 		goto connection_error;
 	}
 
@@ -127,7 +133,7 @@ void custom_route_payment(
 		return;
 	}
 
-	log_debug(ld->log, "Using custom router to handle the payment");
+	log_debug(router->log, "Using custom router to handle the payment");
 
 	// Write the command to the socket
 	command = tal_fmt(tmpctx,
@@ -142,7 +148,7 @@ void custom_route_payment(
 
 	if (!write_all(router->fd, command, strlen(command))) {
 		//FIXME: proper handling, e.g. closing the connection
-		log_debug(ld->log,
+		log_debug(router->log,
 			"Failed to write command to the custom router: error %d (%s)",
 			errno, strerror(errno));
 		*failcode = WIRE_INVALID_REALM;
@@ -151,10 +157,10 @@ void custom_route_payment(
 
 	*failcode = read_app_response(router);
 	if (*failcode) {
-		log_debug(ld->log,
+		log_debug(router->log,
 			"Custom router rejected the payment with code %d", *failcode);
 	} else {
-		log_debug(ld->log, "Custom router accepted the payment");
+		log_debug(router->log, "Custom router accepted the payment");
 	}
 }
 
@@ -180,11 +186,12 @@ void custom_router_setup_connection(struct lightningd *ld, const char *filename)
 	if (connect(fd, (struct sockaddr *)&addr, sizeof(addr)) != 0)
 		errx(1, "Connect to '%s' failed", filename);
 
-	log_debug(ld->log, "Connected to custom router on '%s'", filename);
-
 	router = tal(ld, struct custom_router);
 	router->ld = ld;
+	router->log = ld->log; //FIXME: maybe we want it to have its own log?
 	router->fd = fd;
+
+	log_debug(router->log, "Connected to custom router on '%s'", filename);
 
 	//Register router in ld
 	ld->custom_router = router;
