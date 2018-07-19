@@ -10,12 +10,26 @@ class Connection(asyncore.dispatcher_with_send):
         asyncore.dispatcher_with_send.__init__(self, socket, map=router.channelMap)
         self.router = router
         self.decoder = json.JSONDecoder()
+        self.read_buffer = b''
 
     def handle_read(self):
         data = self.recv(1024)
-        #FIXME: do parsing
-        self.router.handle_payment(data)
-        #FIXME: handle exceptions / return value in handle_payment
+
+        self.read_buffer += data
+
+        try:
+            obj, end_index = self.decoder.raw_decode(
+                self.read_buffer.decode('UTF-8')
+                )
+        except ValueError:
+            # Probably didn't read enough
+            return
+        self.read_buffer = self.read_buffer[end_index:]
+
+        #FIXME: check method name (must be handle_payment)
+        ret = self.router.handle_payment(**obj['params'])
+
+        #FIXME: send the return data back
 
     def handle_close(self):
         self.router.connections.remove(self)
@@ -56,6 +70,8 @@ class CustomRouter:
         self.channelMap = map
         self.listener = Listener(socket_path, self)
 
-    def handle_payment(self, data):
-        pass #to be replaced in derived classes
+    def handle_payment(self, realm):
+        #to be replaced in derived classes
+        #FIXME: by default, cancel a transaction
+        pass
 
