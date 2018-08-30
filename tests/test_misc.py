@@ -5,6 +5,7 @@ from lightning import RpcError
 from utils import DEVELOPER, VALGRIND, sync_blockheight, only_one, wait_for, TailableProc
 from ephemeral_port_reserve import reserve
 
+import asyncore
 import json
 import os
 import pytest
@@ -12,9 +13,11 @@ import shutil
 import signal
 import socket
 import subprocess
+import threading
 import time
 import unittest
 
+from lightning import CustomRouter
 
 @unittest.skipIf(not DEVELOPER, "needs --dev-disconnect")
 def test_stop_pending_fundchannel(node_factory, executor):
@@ -914,6 +917,68 @@ def test_feerates(node_factory):
     assert feerates['onchain_fee_estimates']['opening_channel_satoshis'] == feerates['perkw']['normal'] * 702 // 1000
     assert feerates['onchain_fee_estimates']['mutual_close_satoshis'] == feerates['perkw']['normal'] * 673 // 1000
     assert feerates['onchain_fee_estimates']['unilateral_close_satoshis'] == feerates['perkw']['urgent'] * 598 // 1000
+
+
+def test_custom_router(node_factory, bitcoind):
+
+    class TestRouter(CustomRouter, threading.Thread):
+        def __init__(self, *args, **kwargs):
+            CustomRouter.__init__(self, *args, **kwargs)
+            threading.Thread.__init__(self)
+            self.realm = None
+            self.stopRequested = False
+
+        def handle_payment(self, realm):
+            self.realm = realm
+
+        def run(self):
+            while not self.stopRequested:
+                asyncore.loop(timeout=1, count=1, map=self.channelMap)
+
+        def stop(self):
+            self.stopRequested = True
+            self.join()
+
+    socketFilename = os.path.abspath('TestRouterSocket')
+    testRouter = TestRouter(socketFilename)
+    testRouter.start()
+
+    try:
+        # Connect 1 -> 2.
+        l1, l2 = node_factory.line_graph(2, fundchannel=True, opts=\
+            [
+            {},
+            {'custom-router': socketFilename}
+            ])
+
+        # Allow announce messages.
+        l1.bitcoin.generate_block(5)
+
+        # If they're at different block heights we can get spurious errors.
+        sync_blockheight(bitcoind, [l1, l2])
+
+        chanid1 = l1.rpc.getpeer(l2.info['id'])['channels'][0]['short_channel_id']
+        assert l2.rpc.getpeer(l1.info['id'])['channels'][0]['short_channel_id'] == chanid1
+
+        rhash = l2.rpc.invoice(100000000, 'testpayment1', 'desc')['payment_hash']
+        assert l2.rpc.listinvoices('testpayment1')['invoices'][0]['status'] == 'unpaid'
+
+        # Fee for node2 is 10 millionths, plus 1.
+        amt = 100000000
+        fee = amt * 10 // 1000000 + 1
+
+        route = [{'msatoshi': amt + fee,
+                  'id': l2.info['id'],
+                  'delay': 12,
+                  'channel': chanid1,
+                  'realm': 254}]
+
+        l1.rpc.sendpay(route, rhash)
+        time.sleep(2)
+        assert testRouter.realm == 254
+
+    finally:
+        testRouter.stop()
 
 
 def test_logging(node_factory):
